@@ -1,0 +1,84 @@
+version: "1.0"
+kind: step-type
+metadata:
+  name: roicodefresh/k3d
+  version: 0.0.5
+  title: Run a K3d cluster
+  isPublic: true
+  description: >-
+    Allows you to run a K3s based Kubernetes cluster for the scope of your pipeline.
+    This can be very useful for running end-to-end tests on different Kubernetes versions.
+    Note: This step only works on hybrid runtimes, not on Codefresh SaaS runtime.
+  sources:
+    - "https://github.com/roi-codefresh/codefresh-k3d-step"
+  stage: incubating
+  maintainers:
+    - name: Roi Kramer
+  categories:
+    - featured
+  official: false
+  tags: []
+  icon:
+    type: svg
+    url: "https://k3d.io/v5.4.6/static/img/k3d_logo_black_blue.svg"
+    background: "#636363"
+  examples:
+    - description: Run a k3d default cluster
+      workflow:
+        create_cluster:
+          title: Create cluster
+          type: roicodefresh/k3d
+        use_cluster:
+          title: Test cluster is working
+          type: freestyle
+          image: rancher/k3d:5.3.0-dind
+          commands:
+            - kubectl cluster-info
+    - description: Create a cluster using a specific k3s version
+      workflow:
+        create_cluster:
+          title: Create cluster
+          type: roicodefresh/k3d
+          arguments:
+            CLUSTER_IMAGE: "rancher/k3s:v1.24.9-k3s1"
+    - description: Create a cluster with a different name (default is 'default')
+      workflow:
+        create_cluster:
+          title: Create cluster
+          type: roicodefresh/k3d
+          arguments:
+            CLUSTER_NAME: "test-cluster"
+spec:
+  arguments: |-
+    {
+      "definitions": {},
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "additionalProperties": false,
+      "patterns": [],
+      "required": [],
+      "properties": {
+        "CLUSTER_IMAGE": {
+          "type": "string",
+          "description": "The k3s image to use",
+          "default": "rancher/k3s:v1.24.9-k3s1"
+        },
+        "CLUSTER_NAME": {
+          "type": "string",
+          "description": "The name of the k3d cluster, mainly used to avoid collsions if you want to create multiple clusters in the same pipeline",
+          "default": "default"
+        }
+      }
+    }
+  steps:
+    main:
+      name: create_cluster
+      image: rancher/k3d:5.3.0-dind
+      commands:
+        - export NETWORK=$(docker network ls | grep bridge | tail -1 | awk '{print $2}')
+        - export CLUSTER_NAME=${{CLUSTER_NAME}}
+        - export CLUSTER_IMAGE=${{CLUSTER_IMAGE}}
+        - export CLUSTER_NUM_AGENTS=${{CLUSTER_NUM_AGENTS}}
+        - k3d cluster create $CLUSTER_NAME --network $NETWORK -i $CLUSTER_IMAGE --no-lb
+        - export CLUSTER_IP=`docker inspect k3d-$CLUSTER_NAME-server-0 | jq -r '.[0].NetworkSettings.IPAddress'`
+        - yq e -i '(.clusters[] | select(.name=="k3d-"+env(CLUSTER_NAME)) | .cluster.server) = "https://"+env(CLUSTER_IP)+":6443"' $KUBECONFIG
