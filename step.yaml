@@ -2,7 +2,7 @@ version: "1.0"
 kind: step-type
 metadata:
   name: roicodefresh/k3d
-  version: 0.0.5
+  version: 0.0.6
   title: Run a K3d cluster
   isPublic: true
   description: >-
@@ -78,7 +78,6 @@ spec:
         - export NETWORK=$(docker network ls | grep bridge | tail -1 | awk '{print $2}')
         - export CLUSTER_NAME=${{CLUSTER_NAME}}
         - export CLUSTER_IMAGE=${{CLUSTER_IMAGE}}
-        - export CLUSTER_NUM_AGENTS=${{CLUSTER_NUM_AGENTS}}
         - k3d cluster create $CLUSTER_NAME --network $NETWORK -i $CLUSTER_IMAGE --no-lb
         - export CLUSTER_IP=`docker inspect k3d-$CLUSTER_NAME-server-0 | jq -r '.[0].NetworkSettings.IPAddress'`
         - yq e -i '(.clusters[] | select(.name=="k3d-"+env(CLUSTER_NAME)) | .cluster.server) = "https://"+env(CLUSTER_IP)+":6443"' $KUBECONFIG
